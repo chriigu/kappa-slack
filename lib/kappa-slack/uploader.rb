@@ -88,15 +88,27 @@ module KappaSlack
     end
 
     def bttv_emotes
-      response = JSON.parse(http.get_content('https://api.betterttv.net/2/emotes'))
       url_template = "https:#{response['urlTemplate'].gsub('{{image}}', '1x')}"
-
-      response['emotes'].map do |emote|
-        {
-            name: emote['code'].parameterize,
-            url: url_template.gsub('{{id}}', emote['id'])
-        }
+      if subscriber_emotes_from_channel.to_s.empty?
+        KappaSlack.logger.info "Get BTTV emotes"
+        response = JSON.parse(http.get_content('https://api.betterttv.net/2/emotes'))
+        response['emotes'].map do |emote|
+          {
+              name: emote['code'].parameterize,
+              url: url_template.gsub('{{id}}', emote['id'])
+          }
+        end
+      else
+        KappaSlack.logger.info "Get BTTV emotes for channel '#{subscriber_emotes_from_channel}'"
+        response = JSON.parse(http.get_content("https://api.betterttv.net/2/channels/#{subscriber_emotes_from_channel}"))
+        response['emotes'].map do |emote|
+          {
+              name: emote['code'].parameterize,
+              url: url_template.gsub('{{id}}', emote['id'])
+          }
+        end
       end
+
     end
 
     def twitch_emotes
@@ -114,15 +126,16 @@ module KappaSlack
         channel = subscriber_emotes
         emotes = []
         channel.each do |channel_id, channelEntry|
-              channelEntry['emotes'].each do |emote|
-                   emotes << emote
-               end
+          channelEntry['emotes'].each do |emote|
+            emotes << emote
+          end
         end
 
-        emotes.map do |emote| {
-            name: emote['code'].parameterize,
-            url: url_template.gsub('{id}', emote['id'].to_s)
-        }
+        emotes.map do |emote|
+          {
+              name: emote['code'].parameterize,
+              url: url_template.gsub('{id}', emote['id'].to_s)
+          }
         end
       end
     end
@@ -135,9 +148,7 @@ module KappaSlack
 
     def emotes
       all_emotes = twitch_emotes
-      if skip_bttv_emotes? && !subscriber_emotes_from_channel.to_s.empty?
-        all_emotes += bttv_emotes
-      end
+      all_emotes += bttv_emotes unless skip_bttv_emotes?
 
       if skip_one_letter_emotes?
         all_emotes.select {|e| e[:name].length > 1}
