@@ -88,10 +88,10 @@ module KappaSlack
     end
 
     def bttv_emotes
-      url_template = "https:#{response['urlTemplate'].gsub('{{image}}', '1x')}"
       if subscriber_emotes_from_channel.to_s.empty?
         KappaSlack.logger.info "Get BTTV emotes"
         response = JSON.parse(http.get_content('https://api.betterttv.net/2/emotes'))
+        url_template = "https:#{response['urlTemplate'].gsub('{{image}}', '1x')}"
         response['emotes'].map do |emote|
           {
               name: emote['code'].parameterize,
@@ -101,6 +101,7 @@ module KappaSlack
       else
         KappaSlack.logger.info "Get BTTV emotes for channel '#{subscriber_emotes_from_channel}'"
         response = JSON.parse(http.get_content("https://api.betterttv.net/2/channels/#{subscriber_emotes_from_channel}"))
+        url_template = "https:#{response['urlTemplate'].gsub('{{image}}', '1x')}"
         response['emotes'].map do |emote|
           {
               name: emote['code'].parameterize,
@@ -108,9 +109,8 @@ module KappaSlack
           }
         end
       end
-
     end
-
+    
     def twitch_emotes
       url_template = 'https://static-cdn.jtvnw.net/emoticons/v1/{id}/1.0'
       if subscriber_emotes_from_channel.to_s.empty?
