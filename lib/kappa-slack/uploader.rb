@@ -8,16 +8,18 @@ require 'digest/sha1'
 module KappaSlack
   class Uploader
     def initialize(
-      slack_team_name:,
-      slack_email:,
-      slack_password:,
-      skip_bttv_emotes:,
-      skip_one_letter_emotes:)
+        slack_team_name:,
+        slack_email:,
+        slack_password:,
+        skip_bttv_emotes:,
+        skip_one_letter_emotes:,
+        subscriber_emotes_from_channel:)
       @slack_team_name = slack_team_name
       @slack_email = slack_email
       @slack_password = slack_password
       @skip_bttv_emotes = skip_bttv_emotes
       @skip_one_letter_emotes = skip_one_letter_emotes
+      @subscriber_emotes_from_channel = subscriber_emotes_from_channel
     end
 
     def upload
@@ -69,6 +71,10 @@ module KappaSlack
       @skip_one_letter_emotes
     end
 
+    def subscriber_emotes_from_channel
+      @subscriber_emotes_from_channel
+    end
+
     def browser
       @browser ||= Mechanize.new
     end
@@ -87,30 +93,54 @@ module KappaSlack
 
       response['emotes'].map do |emote|
         {
-          name: emote['code'].parameterize,
-          url: url_template.gsub('{{id}}', emote['id'])
+            name: emote['code'].parameterize,
+            url: url_template.gsub('{{id}}', emote['id'])
         }
       end
     end
 
     def twitch_emotes
-      response = JSON.parse(http.get_content('https://twitchemotes.com/api_cache/v3/global.json'))
       url_template = 'https://static-cdn.jtvnw.net/emoticons/v1/{id}/1.0'
+      if subscriber_emotes_from_channel.to_s.empty?
+        KappaSlack.logger.info "Get emotes from twitch"
+        response = JSON.parse(http.get_content('https://twitchemotes.com/api_cache/v3/global.json'))
+        response.map do |name, emote|
+          {
+              name: name.parameterize,
+              url: url_template.gsub('{id}', emote['id'].to_s)
+          }
+        end
+      else
+        channel = subscriber_emotes
+        emotes = []
+        channel.each do |channel_id, channelEntry|
+              channelEntry['emotes'].each do |emote|
+                   emotes << emote
+               end
+        end
 
-      response.map do |name, emote|
-        {
-          name: name.parameterize,
-          url: url_template.gsub('{id}', emote['id'].to_s)
+        emotes.map do |emote| {
+            name: emote['code'].parameterize,
+            url: url_template.gsub('{id}', emote['id'].to_s)
         }
+        end
       end
+    end
+
+    def subscriber_emotes
+      KappaSlack.logger.info "Get emotes for channel '#{subscriber_emotes_from_channel}'"
+      response = JSON.parse(http.get_content('https://twitchemotes.com/api_cache/v3/subscriber.json'))
+      response.select {|channel_id, channel| channel['channel_name'].casecmp(subscriber_emotes_from_channel) == 0}
     end
 
     def emotes
       all_emotes = twitch_emotes
-      all_emotes += bttv_emotes unless skip_bttv_emotes?
+      if skip_bttv_emotes? && !subscriber_emotes_from_channel.to_s.empty?
+        all_emotes += bttv_emotes
+      end
 
       if skip_one_letter_emotes?
-        all_emotes.select { |e| e[:name].length > 1 }
+        all_emotes.select {|e| e[:name].length > 1}
       else
         all_emotes
       end
