@@ -6,7 +6,7 @@ Add Kappa to your Slack.
 Setup your local copy by running:
 
 ```sh
-git clone git@github.com:calderalabs/kappa-slack.git
+git clone git@github.com:chriigu/kappa-slack.git
 cd kappa-slack
 bundle install
 ```
@@ -32,5 +32,6 @@ Optionally, you can pass these options to skip certain emotes:
 
 * `--skip-bttv-emotes` (default: `false`) Skips emotes from BetterTTV
 * `--skip-one-letter-emotes` (default: `true`) Skips single letter emotes, like `D:`
+* `--subscriber-emotes-from-channel` Pass a channel name to download emotes only from this channel
 
 Enjoy!
